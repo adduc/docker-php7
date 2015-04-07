@@ -27,10 +27,25 @@ WORKDIR /usr/local/src/php
 ENV PHP_DIR /usr/local/php
 
 # configure the build
-RUN ./buildconf && ./configure --prefix=$PHP_DIR --with-config-file-path=$PHP_DIR --with-config-file-scan-dir=$PHP_DIR/conf.d --with-apxs2=/usr/bin/apxs2 --with-libdir=/lib/x86_64-linux-gnu --without-pear
+RUN ./buildconf && ./configure \
+    --prefix=$PHP_DIR \
+    --with-config-file-path=$PHP_DIR \
+    --with-config-file-scan-dir=$PHP_DIR/conf.d \
+    --with-apxs2=/usr/bin/apxs2 \
+    --with-libdir=/lib/x86_64-linux-gnu \
+    --enable-mysqlnd \
+    --with-pdo-mysql \
+    --enable-opcache \
+    --without-pear
 
 # compile and install
-RUN make && make install
+RUN make -j8 && make install
+
+# Link CLI PHP
+RUN ln -s $PHP_DIR/bin/php /usr/bin/php
+
+# Enable Opcache
+RUN mkdir $PHP_DIR/conf.d && echo "zend_extension=opcache.so" > /usr/local/php/conf.d/php.ini
 
 # set up Apache environment variables
 ENV APACHE_RUN_USER=www-data \
@@ -38,13 +53,13 @@ ENV APACHE_RUN_USER=www-data \
     APACHE_LOG_DIR=/var/log/apache2 \
     APACHE_LOCK_DIR=/var/lock/apache2 \
     APACHE_PID_FILE=/var/run/apache2.pid
-
+    
 # Update the default apache site with the config we created.
 ADD apache-config.conf /etc/apache2/sites-enabled/000-default.conf
 
 # configure Apache for prefork and start server
-RUN a2dismod mpm_event && a2enmod mpm_prefork && service apache2 restart
+RUN a2dismod mpm_event && a2enmod mpm_prefork headers rewrite && service apache2 restart
 EXPOSE 80
 
-# By default, simply start apache.
-CMD /usr/sbin/apache2ctl -D FOREGROUND
+ADD run.sh /opt/run.sh
+CMD /bin/bash /opt/run.sh
