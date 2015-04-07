@@ -22,6 +22,9 @@ RUN apt-get update && apt-get install -y \
 # get the latest PHP source from master branch
 RUN git clone --depth=1 https://github.com/php/php-src.git /usr/local/src/php
 
+# get mysql extension
+RUN git clone --depth=1 https://git.php.net/repository/pecl/database/mysql.git /usr/local/src/php/ext/mysql
+
 # we're going to be working out of the PHP src directory for the compile steps
 WORKDIR /usr/local/src/php
 ENV PHP_DIR /usr/local/php
@@ -36,7 +39,9 @@ RUN ./buildconf && ./configure \
     --enable-mysqlnd \
     --with-pdo-mysql \
     --enable-opcache \
-    --without-pear
+    --with-openssl \
+    --with-curl \
+    --with-mysql
 
 # compile and install
 RUN make -j8 && make install
@@ -45,7 +50,7 @@ RUN make -j8 && make install
 RUN ln -s $PHP_DIR/bin/php /usr/bin/php
 
 # Enable Opcache
-RUN mkdir $PHP_DIR/conf.d && echo "zend_extension=opcache.so" > /usr/local/php/conf.d/php.ini
+RUN mkdir $PHP_DIR/conf.d && echo "zend_extension=opcache.so" > /usr/local/php/conf.d/opcache.ini
 
 # set up Apache environment variables
 ENV APACHE_RUN_USER=www-data \
